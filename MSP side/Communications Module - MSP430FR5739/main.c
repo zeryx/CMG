@@ -1,7 +1,9 @@
 #include <msp430fr5739.h>
 
 #include <stdlib.h>
+#include <stdint.h>
 #include "queue.h"
+#include "Motor_Laser.h"
 //define bits as MCU pins
 
 #define STEP_A	BIT0
@@ -16,6 +18,14 @@
 #define SLEEP	BIT4
 #define RESET	BIT5
 
+typedef struct {                        // A simple variant data type that can hold byte, word, or long
+	    uint8_t len;                        // Length of data received
+	    union {                             //
+	        uint8_t b;                      // Byte
+	        uint16_t n;                     // Word (2 bytes)
+	        uint32_t l;                     // Long (4 bytes)
+	    } val;                              //
+	} variant_t;
 
 
 
@@ -26,55 +36,108 @@ int getbyte(void);
 void ConfigWDT(void);	// also actually use the WDT when you move off the shitty fraunchpad
 
 //actually do something with error handling
-void ErrorHandling(int er_num);
 
 
 //initalizing the mechanical peripherals
-void ResetMotors(void);
-void LaserWarmup(void);
 
-
-
-// the motor stuff, do it later
-void MotorX(int dat);
-void MotorY(int dat);
-void LaserOff(void);
-void LaserOn(void);
+void read_var(variant_t *v);
 
 
 void main(void)
 {
 	ConfigEverything();
 	ConfigWDT();
-
-	int end=0; // function cease command
-	Queue Qx,Qy;
+	ConfigureMotorsStep_16();
 
 
+	int end=0,datx,daty,sumx,sumy; // function cease command
+	Queue Qx,Qy,dirqx,dirqy;
+	unsigned char dirx,diry;
 
 
 	//configure data handler
 	ResetMotors();
-	LaserWarmup();
 	putbyte(0xff); // all clear
-	int n=0;
 	while(1)
 	{
+		int x=0;
 		end=getbyte(); // gets a 0 from the computer, unless its the end, then its a 1
 		if(end)
 		break;
+
+
 		int StackSize=getbyte();	//creates the queue to the size specified,
 		Qx= CreateQueue(StackSize);	// will set perminently later
 		Qy= CreateQueue(StackSize);	//
+		dirqx=CreateQueue(StackSize);
+		dirqy=CreateQueue(StackSize);
 
 		while(!(IsFull(Qx) || IsFull(Qy))) // while queue is not full, fill er up
 		{
-			n++;
-			int buff=getbyte();	// get buffer byte from PC
-			if(n&1)
-				Enqueue(buff,Qx);	//put buffer byte in queue x
-			else
-				Enqueue(buff,Qy);// put buffer byte in queue y
+			variant_t combine;
+			x++;
+			read_var(&combine);
+
+
+			if(combine.len==4)
+			{
+
+
+
+				if(x&1)
+				{
+					dirx=0x1&combine.val.l;
+					datx=combine.val.l << 1;
+					Enqueue(datx, Qx);	//put buffer byte in queue x
+					Enqueue(dirx, dirqx);
+				}
+				if(!x&1)
+				{
+					diry=0x1&combine.val.l;
+					daty=combine.val.l >> 1;
+					Enqueue(daty,Qy);// put buffer byte in queue y
+					Enqueue(diry, dirqy);
+				}
+			}
+			if(combine.len==2)
+			{
+
+
+
+					if(x&1)
+					{
+						dirx=0x1&combine.val.n;
+						datx=combine.val.n >> 1;
+						Enqueue(datx,Qx);	//put buffer byte in queue x
+						Enqueue(dirx, dirqx);
+					}
+					if(!x&1)
+					{
+						diry=0x1&combine.val.n;
+						daty=combine.val.n >> 1;
+						Enqueue(daty,Qy);// put buffer byte in queue y
+						Enqueue(diry, dirqy);
+					}
+			}
+			if(combine.len==1)
+						{
+
+
+							if(x&1)
+							{
+								dirx=0x1&combine.val.b;
+								datx=combine.val.b >> 1;
+								Enqueue(datx,Qx);	//put buffer byte in queue x
+								Enqueue(dirx, dirqx);
+							}
+							if(!x&1)
+							{
+								diry=0x1&combine.val.b;
+								daty=combine.val.b >> 1;
+								Enqueue(daty,Qy);// put buffer byte in queue y
+								Enqueue(diry, dirqy);
+							}
+						}
 
 		}
 
@@ -86,15 +149,21 @@ void main(void)
 
 		while(!(IsEmpty(Qy) || IsEmpty(Qx)))
 		{
-			LaserOn();
-			MotorX(FrontAndDequeue(Qx));
-			MotorY(FrontAndDequeue(Qy));
+			if(diry)
+				sumy=sumy-Front(Qy);
+			if(!diry)
+				sumy=sumy+Front(Qy);
+			if(dirx)
+				sumx=sumx-Front(Qx);
+			if(!dirx)
+				sumx=sumx+Front(Qx);
+
+			Motor(FrontAndDequeue(Qx), FrontAndDequeue(Qy), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), sumx, sumy);
 
 		}
 		LaserOff();
 
 	}
-
 }
 
 
@@ -197,12 +266,19 @@ void ConfigEverything(void)
 
 }
 
-void ErrorHandling(int er_num)
-{
-	putbyte(er_num);
-	P3IFG |=BIT0;
 
+void read_var(variant_t *v)             // Get a variant
+{                                       //
+    unsigned n = getbyte();                // First byte is length
+    v->len = n;                         // Save it
+    if(n < 1 || n > 4) return;          // Exit if out of range
+    uint8_t *b = &v->val.b;             // Make pointer to data
+    do {                                //
+        *b++ = getbyte();                  // Get a byte
+    } while(--n);                       // Until all received
 }
+
+
 
 
 void putbyte(unsigned int c)
@@ -219,40 +295,9 @@ int getbyte(void)
     while(!(UCA0IFG & UCSTTIFG));
     _delay_cycles(50000);
     const int c = UCA0RXBUF;
+    UCA0RXBUF=0;
     UCA0IFG &= ~(UCRXIFG+UCSTTIFG);
      return c;
 }
 
 
-void ResetMotors(void)
-{
-	P2OUT&=~SLEEP;								//turn on MCU
-	P2OUT |= RESET;								// reset location of MCU
-	  _delay_cycles(50);						// wait for reset
-	  P2OUT &= ~(RESET);						// turn off reset bit
-	  P2OUT|=SLEEP;
-}
-void LaserWarmup(void)// Fill all these later when I have proper pins to use
-{
-	_delay_cycles(50);
-}
-
-void LaserOff(void)
-{
-
-}
-
-void LaserOn(void)	//
-{
-
-}
-
-void MotorX(int dat)//
-{
-
-}
-
-void MotorY(int dat)//
-{
-
-}
