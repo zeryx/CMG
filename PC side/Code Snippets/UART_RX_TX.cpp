@@ -2,15 +2,40 @@
 */
 //if you just want to use it, skip all the top gobbledegook and get to the meat and potatoes at the bottom
 
+
+
+
+// this union splits a short into 2 bytes
+
+
+
+
+#include <stdint.h>
 #include <stdio.h>
 #include <conio.h>
 #include <string.h>
 #include <stdlib.h>
 #define STRICT
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <Windows.h>
+#include <WinBase.h>
 using namespace std;
 #include <iostream>
+
+
+typedef struct {                        // A simple variant data type that can hold byte, word, or long
+	    uint8_t len;                        // Length of data received
+	    union {                             //
+	        uint8_t b;                      // Byte
+	        uint16_t n;                     // Short
+	        uint32_t l;                     // Long
+	                                        //
+	    } val;                              //
+	} variant_t;                            //
+
+
+
+
 void system_error(char *name) {
 // Retrieve, format, and print out a message from the last error.  The 
 // `name' that's passed should be in the form of a present tense noun 
@@ -34,7 +59,7 @@ void system_error(char *name) {
 
 
 
-
+void SendShort(variant_t *v, HANDLE file, DWORD written);  
 
 int main(int argc, char **argv) {
     int ch;
@@ -102,7 +127,29 @@ int main(int argc, char **argv) {
   //unsigned char tx_variable[1];
   // *tx_variable=25;
   //WriteFile(file, tx_variable, sizeof(tx_variable), &written, NULL);
-  // that writes 25 to the port.
+  variant_t sendx, sendy;
+
+        unsigned char ack[1];
+        *ack=0;
+        WriteFile(file, ack, sizeof(ack), &written, NULL);
+        sendx.val.n=(0xffff&4000)| 0x1; // 4000 with a direction of -
+        sendy.val.n=(0xffff&7000);// 7000 with a direction of +
+        SendShort(&sendx, file, written);
+        SendShort(&sendy, file, written);
+        
+        
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   
@@ -121,3 +168,19 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void SendShort(variant_t *v, HANDLE file, DWORD written)             
+{                                      
+    
+    
+    
+    
+    
+	int n=2;
+	unsigned char array;
+    uint8_t *b = &v->val.b;             
+    do {
+        *array=*b++;
+        WriteFile(file, array, sizeof(array), &written, NULL);
+        Sleep(500);                
+    } while(--n);                      
+}

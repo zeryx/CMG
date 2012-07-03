@@ -18,6 +18,8 @@
 #define SLEEP	BIT4
 #define RESET	BIT5
 
+
+#define STACKSIZE 5
 typedef struct {                        // A simple variant data type that can hold byte, word, or long
 	    uint8_t len;                        // Length of data received
 	    union {                             //
@@ -29,7 +31,7 @@ typedef struct {                        // A simple variant data type that can h
 
 
 
-
+void AddToBackOfQueue();
 void ConfigEverything(void);
 void putbyte(unsigned int c);
 int getbyte(void);
@@ -66,21 +68,17 @@ void main(void)
 		break;
 
 
-		int StackSize=getbyte();	//creates the queue to the size specified,
-		Qx= CreateQueue(StackSize);	// will set perminently later
-		Qy= CreateQueue(StackSize);	//
-		dirqx=CreateQueue(StackSize);
-		dirqy=CreateQueue(StackSize);
+
+		Qx= CreateQueue(STACKSIZE);	// change in define
+		Qy= CreateQueue(STACKSIZE);	//
+		dirqx=CreateQueue(STACKSIZE);
+		dirqy=CreateQueue(STACKSIZE);
 
 		while(!(IsFull(Qx) || IsFull(Qy))) // while queue is not full, fill er up
 		{
 			variant_t combine;
 			x++;
 			read_var(&combine);
-
-
-			if(combine.len==4)
-			{
 
 
 
@@ -98,48 +96,8 @@ void main(void)
 					Enqueue(daty,Qy);// put buffer byte in queue y
 					Enqueue(diry, dirqy);
 				}
-			}
-			if(combine.len==2)
-			{
 
 
-
-					if(x&1)
-					{
-						dirx=0x1&combine.val.n;
-						datx=combine.val.n >> 1;
-						Enqueue(datx,Qx);	//put buffer byte in queue x
-						Enqueue(dirx, dirqx);
-					}
-					if(!x&1)
-					{
-						diry=0x1&combine.val.n;
-						daty=combine.val.n >> 1;
-						Enqueue(daty,Qy);// put buffer byte in queue y
-						Enqueue(diry, dirqy);
-					}
-			}
-			if(combine.len==1)
-						{
-
-
-							if(x&1)
-							{
-								dirx=0x1&combine.val.b;
-								datx=combine.val.b >> 1;
-								Enqueue(datx,Qx);	//put buffer byte in queue x
-								Enqueue(dirx, dirqx);
-							}
-							if(!x&1)
-							{
-								diry=0x1&combine.val.b;
-								daty=combine.val.b >> 1;
-								Enqueue(daty,Qy);// put buffer byte in queue y
-								Enqueue(diry, dirqy);
-							}
-						}
-
-		}
 
 
 
@@ -159,7 +117,8 @@ void main(void)
 				sumx=sumx+Front(Qx);
 
 			Motor(FrontAndDequeue(Qx), FrontAndDequeue(Qy), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), sumx, sumy);
-
+			if(UCA0IFG & UCTXIFG)
+			AddToBackOfQueue();
 		}
 		LaserOff();
 
@@ -199,7 +158,13 @@ void main(void)
 
 
 
-
+	void AddToBackOfQueue(void)
+	{
+        variant_t 
+		int i;
+        
+        
+	}
 
 
 
@@ -269,9 +234,9 @@ void ConfigEverything(void)
 
 void read_var(variant_t *v)             // Get a variant
 {                                       //
-    unsigned n = getbyte();                // First byte is length
-    v->len = n;                         // Save it
-    if(n < 1 || n > 4) return;          // Exit if out of range
+
+}
+    v->len = 4;                         // 4 bytes, a long, always
     uint8_t *b = &v->val.b;             // Make pointer to data
     do {                                //
         *b++ = getbyte();                  // Get a byte
