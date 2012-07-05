@@ -19,8 +19,7 @@
 #define SLEEP	BIT4
 #define RESET	BIT5
 
-#define ERROR 10
-#define STEPSIZE 16
+#define ERROR 100
 
 
 #endif /* MOTOR_LASER_H_ */
@@ -112,60 +111,57 @@ void MotorYStep(int diry)
 		P1OUT |= DIR_B;
 		P1OUT |= STEP_B;
 		P1OUT &=~STEP_B;
+		P1OUT |= STEP_B;
 		P2OUT &= ~SLEEP;
 	}
 }
 
 
-void Motor(int qy, int qx,int dirx, int diry, int sumx, int sumy)// this big function commands the steps and how big each x step is related to y.
+void Motor_one_big_step(int qy,int qx,int dirx,int diry)// this big function commands the steps and how big each x step is related to y.
 {
-	int x,y,xcount=sumx,ycount=sumy; // the counter xcount and ycount are used to see how close we are to the target,
-									// where x and y are just counters to count up to the X/Y slope value * STEPSIZE
+															// sumx and sumy for the first trial are set to 0.
 
-	if(qy>qx)
-	{
-		int m=qy/qx*STEPSIZE; // m gives you the slope, if Qy is bigger than Qx, make it a Y/X slope
-
-		while(qy>=(ycount+ERROR)||qy>=(ycount-ERROR)||qx>=(xcount+ERROR)||qx>=(xcount-ERROR)) // continue while not within the error margins in either X or Y of the target
-		{
-			if(ycount>(qy*STEPSIZE) || xcount>(qy*STEPSIZE))
-				ErrorHandling(11);
-			for(y=0;y<=m;y++)
-			{
-				MotorYStep(diry);
-				if(diry)
-					ycount--;
-				else
-					ycount++;
-			}
-			MotorXStep(dirx);
-			if(dirx)
-				xcount--;
-			else
-				xcount++;
-		}
-	}
-	else if(qy<qx) // if Qx is bigger than Qy, make it a X/Y slope
-	{
-		int m=qx/qy*STEPSIZE;
-		while(qy>=(ycount+ERROR)||qy>=(ycount-ERROR)||qx>=(xcount+ERROR)||qx>=(xcount-ERROR))
+	volatile int n;
+	volatile int xcount;
+	volatile int ycount;
+				if(dirx)
 				{
-				if(ycount>(qy*STEPSIZE) || xcount>(qy*STEPSIZE))
-						ErrorHandling(12);
-					for(x=0;x<=m;x++)
+
+					qx=-qx;
+					for(xcount=0;xcount>qx;xcount--)
 					{
 						MotorXStep(dirx);
-						if(dirx)
-							xcount--;
-						else
-							xcount++;
 					}
-					MotorYStep(diry);
-					if(diry)
-						ycount--;
-					else
-						ycount++;
 				}
-	}
+				else if(!dirx)
+				{
+						qx=qx;
+					for(xcount=0;xcount<qx;xcount++)
+					{
+						MotorXStep(dirx);
+					}
+				}
 
+
+
+
+
+
+
+				if(diry)
+				{
+					qy=-qy;
+					for(ycount=0;ycount>qy;ycount--)
+					{
+						MotorYStep(diry);
+					}
+				}
+				else if(!diry)
+				{
+						qy=qy;
+					for(ycount=0;ycount<qy;ycount++)
+					{
+						MotorYStep(diry);
+					}
+				}
 }

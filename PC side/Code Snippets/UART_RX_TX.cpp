@@ -23,15 +23,6 @@ using namespace std;
 #include <iostream>
 
 
-typedef struct {                        // A simple variant data type that can hold byte, word, or long
-	    uint8_t len;                        // Length of data received
-	    union {                             //
-	        uint8_t b;                      // Byte
-	        uint16_t n;                     // Short
-	        uint32_t l;                     // Long
-	                                        //
-	    } val;                              //
-	} variant_t;                            //
 
 
 
@@ -59,7 +50,30 @@ void system_error(char *name) {
 
 
 
+int ContinueCounter=0;
+
+
+
+
+typedef struct {                        // A simple variant data type that can hold byte, word, or long
+	    uint8_t len;                        // Length of data received
+	    union {                             //
+	        uint8_t b;                      // Byte
+	        uint16_t n;                     // Short
+	        uint32_t l;                     // Long
+	                                        //
+	    } val;                              //
+	} variant_t;                            //
+
 void SendShort(variant_t *v, HANDLE file, DWORD written);  
+
+void finished(HANDLE file,DWORD written);
+
+
+
+
+void RecieveGo(HANDLE file, DWORD read);
+
 
 int main(int argc, char **argv) {
     int ch;
@@ -129,16 +143,30 @@ int main(int argc, char **argv) {
   //WriteFile(file, tx_variable, sizeof(tx_variable), &written, NULL);
   variant_t sendx, sendy;
 
-        unsigned char ack[1];
+        unsigned char ack[1],more[1];
         *ack=0;
+        *more=1;
         WriteFile(file, ack, sizeof(ack), &written, NULL);
-        sendx.val.n=(0xffff&4000)| 0x1; // 4000 with a direction of -
-        sendy.val.n=(0xffff&7000);// 7000 with a direction of +
+        RecieveGo(file, read);
+        sendx.val.n=41 | 0x8000; // 4000 with a direction of -
         SendShort(&sendx, file, written);
+        RecieveGo(file, read);
+        sendy.val.n=6 & ~0x8000; // 4735 with a direction of +
         SendShort(&sendy, file, written);
-        
-        
-  
+        RecieveGo(file, read);
+        sendx.val.n=19 | 0x8000;
+        SendShort (&sendx, file, written);
+        RecieveGo(file, read);
+        sendy.val.n=23 & ~0x8000;
+        SendShort (&sendy, file, written);
+        WriteFile(file, more, sizeof(more), &written, NULL);
+        RecieveGo(file, read);
+        sendx.val.n=197 & ~0x8000;
+        SendShort(&sendx, file, written);
+        RecieveGo(file, read);;
+        sendy.val.n=13 | 0x8000;
+        SendShort(&sendy, file, written);
+        finished(file, written);
   
   
   
@@ -173,14 +201,52 @@ void SendShort(variant_t *v, HANDLE file, DWORD written)
     
     
     
-    
-    
-	int n=2;
-	unsigned char array;
-    uint8_t *b = &v->val.b;             
-    do {
-        *array=*b++;
-        WriteFile(file, array, sizeof(array), &written, NULL);
-        Sleep(500);                
-    } while(--n);                      
+    int test1, test2;
+    uint8_t array1[1];
+    uint8_t array2[1];
+    uint8_t *b = &v->val.b; 
+            
+    for(int n=0;n<2;n++)
+    {
+            if(n==0)
+            {
+                    test1=*b++;
+
+            }
+            if(n==1)
+            {
+                    test2=*b;
+            }
+      }
+      
+      
+        cout<<test1<<endl;
+        cout<<test2<<endl;
+        *array1=test1;
+        *array2=test2;
+        WriteFile(file, array1, sizeof(array1), &written, NULL);
+        Sleep(500);           
+        WriteFile(file, array2, sizeof(array2), &written, NULL);
+        Sleep(500);
+}
+void RecieveGo(HANDLE file, DWORD read)
+{
+      unsigned char RX[1];
+     ContinueCounter++;
+     int test;
+     while(!(ContinueCounter==test))
+     {
+             
+         ReadFile(file, RX, sizeof(RX), &read, NULL);
+         test=*RX;
+     }
+}
+void finished(HANDLE file,DWORD written)
+{
+     unsigned char done[1];
+     while(1)
+     {
+        *done=0;
+        WriteFile(file, done, sizeof(done), &written, NULL);  
+     }   
 }
