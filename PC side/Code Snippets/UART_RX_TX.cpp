@@ -9,7 +9,6 @@
 
 
 
-
 #include <stdint.h>
 #include <stdio.h>
 #include <conio.h>
@@ -21,8 +20,6 @@
 #include <WinBase.h>
 using namespace std;
 #include <iostream>
-
-
 
 
 
@@ -50,8 +47,6 @@ void system_error(char *name) {
 
 
 
-int ContinueCounter=0;
-
 
 
 
@@ -65,7 +60,12 @@ typedef struct {                        // A simple variant data type that can h
 	    } val;                              //
 	} variant_t;                            //
 
-void SendShort(variant_t *v, HANDLE file, DWORD written);  
+
+  int ContinueCounter=0;
+
+
+
+void SendShort(variant_t *v, HANDLE file, DWORD written, DWORD read);  
 
 void finished(HANDLE file,DWORD written);
 
@@ -142,43 +142,35 @@ int main(int argc, char **argv) {
   // *tx_variable=25;
   //WriteFile(file, tx_variable, sizeof(tx_variable), &written, NULL);
   variant_t sendx, sendy;
-
         unsigned char ack[1],more[1];
-        *ack=0;
-        *more=1;
-        WriteFile(file, ack, sizeof(ack), &written, NULL);
-        RecieveGo(file, read);
+        *more=0;
         sendx.val.n=41 | 0x8000; // 4000 with a direction of -
-        SendShort(&sendx, file, written);
-        RecieveGo(file, read);
+        SendShort(&sendx, file, written, read);
         sendy.val.n=6 & ~0x8000; // 4735 with a direction of +
-        SendShort(&sendy, file, written);
-        RecieveGo(file, read);
+        SendShort(&sendy, file, written, read);
         sendx.val.n=19 | 0x8000;
-        SendShort (&sendx, file, written);
-        RecieveGo(file, read);
+        SendShort(&sendx, file, written, read);
+
         sendy.val.n=23 & ~0x8000;
-        SendShort (&sendy, file, written);
-        WriteFile(file, more, sizeof(more), &written, NULL);
-        RecieveGo(file, read);
+        SendShort(&sendy, file, written, read);
+
         sendx.val.n=197 & ~0x8000;
-        SendShort(&sendx, file, written);
-        RecieveGo(file, read);;
-        sendy.val.n=13 | 0x8000;
-        SendShort(&sendy, file, written);
-        finished(file, written);
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+        SendShort(&sendx, file, written, read);
+
+        sendy.val.n=86 | 0x8000;
+        SendShort(&sendy, file, written, read);
+
+        // extra stuff to queue
+        RecieveGo(file, read);
+
+        sendx.val.n=66 | 0x8000;
+        SendShort(&sendx, file, written, read);
+
+        sendy.val.n=768 | 0x8000;
+        SendShort(&sendy, file, written, read);
+
+        
+        
   
   
   // to read bytes, use this format:
@@ -196,7 +188,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void SendShort(variant_t *v, HANDLE file, DWORD written)             
+void SendShort(variant_t *v, HANDLE file, DWORD written, DWORD read)             
 {                                      
     
     
@@ -220,33 +212,31 @@ void SendShort(variant_t *v, HANDLE file, DWORD written)
       }
       
       
-        cout<<test1<<endl;
-        cout<<test2<<endl;
         *array1=test1;
         *array2=test2;
         WriteFile(file, array1, sizeof(array1), &written, NULL);
-        Sleep(500);           
+        RecieveGo(file, read);
         WriteFile(file, array2, sizeof(array2), &written, NULL);
-        Sleep(500);
+        RecieveGo(file, read);
 }
 void RecieveGo(HANDLE file, DWORD read)
 {
-      unsigned char RX[1];
-     ContinueCounter++;
+      unsigned char RX[1]={0};
+     ContinueCounter=ContinueCounter+1;
      int test;
-     while(!(ContinueCounter==test))
+     do
      {
-             
+      test=0;
+      *RX=0;
          ReadFile(file, RX, sizeof(RX), &read, NULL);
-         test=*RX;
-     }
+         test=RX[0];
+         Sleep(500);
+     }while(test!=ContinueCounter);
+     cout << test << endl;
 }
 void finished(HANDLE file,DWORD written)
 {
-     unsigned char done[1];
-     while(1)
-     {
+        unsigned char done[1];
         *done=0;
         WriteFile(file, done, sizeof(done), &written, NULL);  
-     }   
 }

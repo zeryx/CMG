@@ -4,6 +4,9 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
+#define DELAY_TERM 100000// this term is important, delays the steps by a certain amount of cycles
+
+
 
 #ifndef MOTOR_LASER_H_
 #define MOTOR_LASER_H_
@@ -20,7 +23,6 @@
 #define RESET	BIT5
 
 #define ERROR 100
-
 
 #endif /* MOTOR_LASER_H_ */
 
@@ -73,46 +75,73 @@ void LaserWait(void)// Fill all these later when I have proper pins to use
 
 void LaserOff(void)
 {
-
+	_delay_cycles(50);
 }
+
+
+
+
+
 
 void MotorXStep(int dirx)
 {
+	_delay_cycles(DELAY_TERM);
 	if(!dirx)// forward step
 	{
-		P2OUT |= SLEEP;
-		P1OUT &= ~DIR_A;
-		P1OUT |= STEP_A;
-		P1OUT &= ~STEP_A;
-		P2OUT &= ~SLEEP;
+		_delay_cycles(DELAY_TERM);
+		PJOUT &= ~BIT1;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &=~BIT3;
+		_delay_cycles(DELAY_TERM);
+		P3OUT |= BIT3;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT3;
+		_delay_cycles(DELAY_TERM);
+
 	}
 	if(dirx) // reverse step
 	{
-		P2OUT |= SLEEP;
-		P1OUT |= DIR_A;
-		P1OUT |= STEP_A;
-		P1OUT &=~STEP_A;
-		P2OUT &= ~SLEEP;
+
+		_delay_cycles(DELAY_TERM);
+		PJOUT |= BIT1;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &=~BIT3;
+		_delay_cycles(DELAY_TERM);
+		P3OUT |= BIT3;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT3;
+		_delay_cycles(DELAY_TERM);
+
 	}
 }
 void MotorYStep(int diry)
 {
 	if(!diry)// forward step
 	{
-		P2OUT |= SLEEP;
-		P1OUT &= ~DIR_B;
-		P1OUT |= STEP_B;
-		P1OUT &= ~STEP_B;
-		P2OUT &= ~SLEEP;
+
+		_delay_cycles(DELAY_TERM);
+		PJOUT &= ~BIT2;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT4;
+		_delay_cycles(DELAY_TERM);
+		P3OUT |= BIT4;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT4;
+		_delay_cycles(DELAY_TERM);
+
 	}
 	if(diry) // reverse step
 	{
-		P2OUT |= SLEEP;
-		P1OUT |= DIR_B;
-		P1OUT |= STEP_B;
-		P1OUT &=~STEP_B;
-		P1OUT |= STEP_B;
-		P2OUT &= ~SLEEP;
+		_delay_cycles(DELAY_TERM);
+		PJOUT |= BIT2;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT4;
+		_delay_cycles(DELAY_TERM);
+		P3OUT |= BIT4;
+		_delay_cycles(DELAY_TERM);
+		P3OUT &= ~BIT4;
+		_delay_cycles(DELAY_TERM);
+
 	}
 }
 
@@ -127,15 +156,13 @@ void Motor_one_big_step(int qy,int qx,int dirx,int diry)// this big function com
 				if(dirx)
 				{
 
-					qx=-qx;
-					for(xcount=0;xcount>qx;xcount--)
+					for(xcount=0;xcount<qx;xcount++)
 					{
 						MotorXStep(dirx);
 					}
 				}
 				else if(!dirx)
 				{
-						qx=qx;
 					for(xcount=0;xcount<qx;xcount++)
 					{
 						MotorXStep(dirx);
@@ -150,15 +177,13 @@ void Motor_one_big_step(int qy,int qx,int dirx,int diry)// this big function com
 
 				if(diry)
 				{
-					qy=-qy;
-					for(ycount=0;ycount>qy;ycount--)
+					for(ycount=0;ycount<qy;ycount++)
 					{
 						MotorYStep(diry);
 					}
 				}
 				else if(!diry)
 				{
-						qy=qy;
 					for(ycount=0;ycount<qy;ycount++)
 					{
 						MotorYStep(diry);

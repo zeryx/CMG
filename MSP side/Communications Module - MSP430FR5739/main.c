@@ -24,7 +24,7 @@
 int ContinueCounter=0;
 
 
-#define STACKSIZE 2
+#define STACKSIZE 3
 typedef struct { // A simple variant data type that can hold byte, word, or long
 	uint8_t len; // Length of data received
 	union { //
@@ -51,26 +51,18 @@ void main(void) {
 	ConfigWDT();
 	ConfigureMotorsStep_16();
 
-	int end = 0, sumx = 0, sumy = 0; // function cease command
 	unsigned short datx = 0, daty = 0;
 	Queue Qx, Qy, dirqx, dirqy;
 	unsigned char dirx = 0, diry = 0;
 
 	//configure data handler
 	ResetMotors();
-	sumx = 0;
-	sumy = 0;
-	putbyte(ACK); // all clear
 	while (1) {
 		int x = 0;
-		end = getbyte(); // gets a 0 from the computer, unless its the end, then its a 1
-		if (end)
-			break;
-
-		Qx = CreateQueue(STACKSIZE); // change in define
-		Qy = CreateQueue(STACKSIZE); //
-		dirqx = CreateQueue(STACKSIZE);
-		dirqy = CreateQueue(STACKSIZE);
+		Qx = CreateQueue(STACKSIZE); 	// change in define
+		Qy = CreateQueue(STACKSIZE); 	//
+		dirqx = CreateQueue(STACKSIZE); //
+		dirqy = CreateQueue(STACKSIZE); //
 
 		while (!IsFull(Qy)) // while queue is not full, fill er up
 		{
@@ -92,23 +84,12 @@ void main(void) {
 
 		}
 
-		putbyte(0xff); // all clear, waiting for start confirmation
 
 		while (!IsEmpty(Qy) && !IsEmpty(Qx)) {
-			Motor_one_big_step(Front(Qx), Front(Qy), Front(dirqx), Front(dirqy));
-
-			if (Front(dirqy))
-				sumy = sumy - FrontAndDequeue(Qy);
-			if (!Front(dirqy))
-				sumy = sumy + FrontAndDequeue(Qy);
-			if (Front(dirqx))
-				sumx = sumx - FrontAndDequeue(Qx);
-			if (!Front(dirqx))
-				sumx = sumx + FrontAndDequeue(Qx);
-			Dequeue(dirqy);
-			Dequeue(dirqx);
-			if (getbyte()==1)
-				AddToBackOfQueue(Qx, Qy, dirqx, dirqy);
+			Motor_one_big_step(FrontAndDequeue(Qx), FrontAndDequeue(Qy), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy));
+			HandShake();
+			if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
+			AddToBackOfQueue(Qx, Qy, dirqx, dirqy);
 		}
 		LaserOff();
 
@@ -173,13 +154,12 @@ void ConfigEverything(void) {
 	P1OUT &= ~(MS1_A + MS1_B + MS2_A + MS2_B); //initialize the step size to 1/1
 	P2OUT |= SLEEP; //turn off MCU while not in use
 
-	//configure button pins for initial interrupt enable
-	P4DIR &= ~(BIT0);
-	P4IE |= BIT0;
+	//configure LED pins
+	PJDIR |= BIT0+BIT1+BIT2+BIT3;
+	P3DIR |= BIT3+BIT4+BIT5+BIT6+BIT7;
+	P3OUT &= ~(BIT0+BIT1+BIT2+BIT3);
+	PJOUT &= ~(BIT3+BIT4+BIT5+BIT6+BIT7);
 
-	// configure P3 pins for generic error message interrupt
-	P3DIR &= ~(BIT0);
-	P3IE |= BIT0;
 
 	//configure UART pins
 	P2DIR |= BIT0;
@@ -227,4 +207,9 @@ void HandShake(void)
 {
 	ContinueCounter++;
 	putbyte(ContinueCounter);
+	putbyte(ACK);
 }
+
+
+
+
