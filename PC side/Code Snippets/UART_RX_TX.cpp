@@ -14,13 +14,11 @@
 #include <conio.h>
 #include <string.h>
 #include <stdlib.h>
-#define STRICT
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <WinBase.h>
+
 using namespace std;
 #include <iostream>
-
+#include <queue>
 
 
 
@@ -141,33 +139,34 @@ int main(int argc, char **argv) {
   //unsigned char tx_variable[1];
   // *tx_variable=25;
   //WriteFile(file, tx_variable, sizeof(tx_variable), &written, NULL);
-  variant_t sendx, sendy;
+  variant_t sendx, sendy, sendcnt;
+  
         unsigned char ack[1],more[1];
-        *more=0;
-        sendx.val.n=41 | 0x8000; // 4000 with a direction of -
+        
+        RecieveGo(file, read);
+        sendcnt.val.n=66;
+        SendShort(&sendcnt, file, written, read);//
+        sendx.val.n=41 | 0x8000; 
         SendShort(&sendx, file, written, read);
-        sendy.val.n=6 & ~0x8000; // 4735 with a direction of +
+        sendy.val.n=6 & ~0x8000; 
         SendShort(&sendy, file, written, read);
+        sendcnt.val.n=77;
+        SendShort(&sendcnt, file, written, read);//
         sendx.val.n=19 | 0x8000;
         SendShort(&sendx, file, written, read);
-
         sendy.val.n=23 & ~0x8000;
         SendShort(&sendy, file, written, read);
-
+        sendcnt.val.n=88;
+        SendShort(&sendcnt, file, written, read);//
         sendx.val.n=197 & ~0x8000;
         SendShort(&sendx, file, written, read);
-
         sendy.val.n=86 | 0x8000;
         SendShort(&sendy, file, written, read);
 
-        // extra stuff to queue
-        RecieveGo(file, read);
 
-        sendx.val.n=66 | 0x8000;
-        SendShort(&sendx, file, written, read);
 
-        sendy.val.n=768 | 0x8000;
-        SendShort(&sendy, file, written, read);
+
+
 
         
         
@@ -230,7 +229,7 @@ void RecieveGo(HANDLE file, DWORD read)
       *RX=0;
          ReadFile(file, RX, sizeof(RX), &read, NULL);
          test=RX[0];
-         Sleep(500);
+         Sleep(50);
      }while(test!=ContinueCounter);
      cout << test << endl;
 }

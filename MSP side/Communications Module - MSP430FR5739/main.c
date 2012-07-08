@@ -22,9 +22,14 @@
 
 #define ACK 0xff
 int ContinueCounter=0;
-
-
 #define STACKSIZE 3
+
+
+
+
+
+
+
 typedef struct { // A simple variant data type that can hold byte, word, or long
 	uint8_t len; // Length of data received
 	union { //
@@ -33,8 +38,11 @@ typedef struct { // A simple variant data type that can hold byte, word, or long
 		uint32_t l; // Long (4 bytes)
 	} val; //
 } variant_t;
+
+
+
 void HandShake(void);
-void AddToBackOfQueue(Queue Qx, Queue Qy, Queue dirqx, Queue dirqy);
+void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt);
 void ConfigEverything(void);
 void putbyte(unsigned int c);
 int getbyte(void);
@@ -51,45 +59,51 @@ void main(void) {
 	ConfigWDT();
 	ConfigureMotorsStep_16();
 
-	unsigned short datx = 0, daty = 0;
-	Queue Qx, Qy, dirqx, dirqy;
+	unsigned short datx = 0, daty = 0, countx;
+	Queue ratio_x, ratio_y, dirqx, dirqy, xcnt;
 	unsigned char dirx = 0, diry = 0;
 
 	//configure data handler
 	ResetMotors();
 	while (1) {
 		int x = 0;
-		Qx = CreateQueue(STACKSIZE); 	// change in define
-		Qy = CreateQueue(STACKSIZE); 	//
+		xcnt =CreateQueue(STACKSIZE);
+		ratio_x = CreateQueue(STACKSIZE); 	// change in define
+		ratio_y = CreateQueue(STACKSIZE); 	//
 		dirqx = CreateQueue(STACKSIZE); //
 		dirqy = CreateQueue(STACKSIZE); //
-
-		while (!IsFull(Qy)) // while queue is not full, fill er up
+		HandShake();
+		while (!IsFull(ratio_y)) // while queue is not full, fill er up
 		{
 			variant_t combine;
 			x++;
-			read_var(&combine);
+
 
 			if (x & 1) {
+				read_var(&combine);
+				countx = (combine.val.n);
+				Enqueue(countx, xcnt); //put length of step cycle in xcnt
+				read_var(&combine);
 				dirx = combine.val.n >> 15;
 				datx = (combine.val.n & ~0x8000);
-				Enqueue(datx, Qx); //put buffer byte in queue x
+				Enqueue(datx, ratio_x);
 				Enqueue(dirx, dirqx);
 			} else {
+				read_var(&combine);
 				diry = combine.val.n >> 15;
 				daty = (combine.val.n & ~0x8000);
-				Enqueue(daty, Qy); // put buffer byte in queue y
+				Enqueue(daty, ratio_y); // put buffer byte in queue y
 				Enqueue(diry, dirqy);
 			}
 
 		}
 
 
-		while (!IsEmpty(Qy) && !IsEmpty(Qx)) {
-			Motor_one_big_step(FrontAndDequeue(Qx), FrontAndDequeue(Qy), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy));
+		while (!IsEmpty(ratio_y) && !IsEmpty(ratio_x)) {
+			Motor_one_big_step(FrontAndDequeue(ratio_x), FrontAndDequeue(ratio_y), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), FrontAndDequeue(xcnt));
 			HandShake();
 			if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
-			AddToBackOfQueue(Qx, Qy, dirqx, dirqy);
+			AddToBackOfQueue(ratio_x, ratio_y, dirqx, dirqy, xcnt);
 		}
 		LaserOff();
 
@@ -114,18 +128,21 @@ __interrupt void PORT3(void) //kill if error catch is bad
 	_no_operation();
 }
 
-void AddToBackOfQueue(Queue Qx, Queue Qy, Queue dirqx, Queue dirqy) {
-	variant_t longx, longy;
-	int diry, daty, dirx, datx;
+void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt) {
+	variant_t longx, longy, longc;
+	int diry, daty, dirx, datx, countx;
+	read_var(&longc);
+	countx = (longc.val.n );
+	Enqueue(countx, xcnt); //put buffer byte in queue x
 	read_var(&longx);
 	dirx = longx.val.n >> 15;
 	datx = longx.val.n & ~0x8000;
-	Enqueue(datx, Qx);
+	Enqueue(datx, ratio_x);
 	Enqueue(dirx, dirqx);
 	read_var(&longy);
 	diry = longy.val.n >> 15;
 	daty = longy.val.n & ~0x8000;
-	Enqueue(daty, Qy);
+	Enqueue(daty, ratio_y);
 	Enqueue(diry, dirqy);
 }
 
@@ -142,10 +159,8 @@ void ConfigEverything(void) {
 	P1DIR |= STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B;
 	P2DIR |= ENABLE + SLEEP + RESET;
 
-	P1SEL0 &=
-			~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); // make sure that function is selected as external pin
-	P1SEL1 &=
-			~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); //
+	P1SEL0 &=~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); // make sure that function is selected as external pin
+	P1SEL1 &~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); //
 																				//
 	P2SEL0 &= ~(ENABLE + SLEEP + RESET); //
 	P2SEL1 &= ~(ENABLE + SLEEP + RESET); //
@@ -157,8 +172,8 @@ void ConfigEverything(void) {
 	//configure LED pins
 	PJDIR |= BIT0+BIT1+BIT2+BIT3;
 	P3DIR |= BIT3+BIT4+BIT5+BIT6+BIT7;
-	P3OUT &= ~(BIT0+BIT1+BIT2+BIT3);
-	PJOUT &= ~(BIT3+BIT4+BIT5+BIT6+BIT7);
+	P3OUT &= ~(BIT3+BIT4+BIT5+BIT6+BIT7);
+	PJOUT &= ~(BIT0+BIT1+BIT2+BIT3);
 
 
 	//configure UART pins

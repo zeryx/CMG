@@ -4,7 +4,7 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
-#define DELAY_TERM 100000// this term is important, delays the steps by a certain amount of cycles
+#define DELAY_TERM 10000// this term is important, delays the steps by a certain amount of cycles
 
 
 
@@ -35,7 +35,7 @@ void ResetMotors(void)
 	P2OUT |= RESET;								// reset location of MCU
 	  _delay_cycles(50);						// wait for reset
 	  P2OUT &= ~(RESET);						// turn off reset bit
-	  P2OUT|=SLEEP;
+
 }
 
 
@@ -49,24 +49,24 @@ void ErrorHandling(int er_num) // errors out, gives a error number and dies
 
 void ConfigureMotorsStep_16(void)
 {
-	P2OUT |= SLEEP;
+
 	P1OUT|= MS1_A + MS2_A+MS1_B+MS2_B;
-	P2OUT &= ~SLEEP;
+
 }
 void ConfigureMotorsStep_4(void)
 {
-	P2OUT |= SLEEP;
+
 	P1OUT|= MS2_A+MS2_B;
 	P1OUT&= ~(MS1_A+MS1_B);
-	P2OUT &= ~SLEEP;
+
 }
 
 void ConfigureMotorsStep_2(void)
 {
-	P2OUT |= SLEEP;
+
 	P1OUT&= ~ (MS2_A+MS2_B);
 	P1OUT|= MS1_A+MS1_B;
-	P2OUT &= ~SLEEP;
+
 }
 void LaserWait(void)// Fill all these later when I have proper pins to use
 {
@@ -85,33 +85,33 @@ void LaserOff(void)
 
 void MotorXStep(int dirx)
 {
-	_delay_cycles(DELAY_TERM);
+
 	if(!dirx)// forward step
 	{
 		_delay_cycles(DELAY_TERM);
-		PJOUT &= ~BIT1;
+		PJOUT |= BIT2;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &=~BIT3;
+		P3OUT &=~BIT4;
 		_delay_cycles(DELAY_TERM);
-		P3OUT |= BIT3;
+		P3OUT |= BIT4;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT3;
+		P3OUT &= ~BIT4;
 		_delay_cycles(DELAY_TERM);
-
+		PJOUT &= ~BIT2;
 	}
 	if(dirx) // reverse step
 	{
 
 		_delay_cycles(DELAY_TERM);
-		PJOUT |= BIT1;
+		PJOUT |= BIT2;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &=~BIT3;
+		P3OUT &=~BIT4;
 		_delay_cycles(DELAY_TERM);
-		P3OUT |= BIT3;
+		P3OUT |= BIT4;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT3;
+		P3OUT &= ~BIT4;
 		_delay_cycles(DELAY_TERM);
-
+		PJOUT &= ~BIT2;
 	}
 }
 void MotorYStep(int diry)
@@ -120,73 +120,56 @@ void MotorYStep(int diry)
 	{
 
 		_delay_cycles(DELAY_TERM);
-		PJOUT &= ~BIT2;
+		PJOUT |= BIT3;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT4;
+		P3OUT &= ~BIT7;
 		_delay_cycles(DELAY_TERM);
-		P3OUT |= BIT4;
+		P3OUT |= BIT7;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT4;
+		P3OUT &= ~BIT7;
 		_delay_cycles(DELAY_TERM);
-
+		PJOUT &= ~BIT3;
 	}
 	if(diry) // reverse step
 	{
 		_delay_cycles(DELAY_TERM);
-		PJOUT |= BIT2;
+		PJOUT |= BIT3;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT4;
+		P3OUT &= ~BIT7;
 		_delay_cycles(DELAY_TERM);
-		P3OUT |= BIT4;
+		P3OUT |= BIT7;
 		_delay_cycles(DELAY_TERM);
-		P3OUT &= ~BIT4;
+		P3OUT &= ~BIT7;
 		_delay_cycles(DELAY_TERM);
-
+		PJOUT &= ~BIT3;
 	}
 }
 
 
-void Motor_one_big_step(int qy,int qx,int dirx,int diry)// this big function commands the steps and how big each x step is related to y.
+void Motor_one_big_step(int ratio_y,int ratio_x,int dirx,int diry, int xcnt)// this function takes the ratio between x and y, direction, and
 {
 															// sumx and sumy for the first trial are set to 0.
 
-	volatile int n;
-	volatile int xcount;
-	volatile int ycount;
-				if(dirx)
-				{
+	volatile int TotalCount, c_ratio_x, c_ratio_y; //
 
-					for(xcount=0;xcount<qx;xcount++)
+			for(TotalCount=0;TotalCount<xcnt;TotalCount++)
+			{
+
+					for(c_ratio_x=0;c_ratio_x<ratio_x;c_ratio_x++)
 					{
 						MotorXStep(dirx);
+
 					}
-				}
-				else if(!dirx)
-				{
-					for(xcount=0;xcount<qx;xcount++)
-					{
-						MotorXStep(dirx);
-					}
-				}
-
-
-
-
-
-
-
-				if(diry)
-				{
-					for(ycount=0;ycount<qy;ycount++)
+					for(c_ratio_y=0;c_ratio_y<ratio_y;c_ratio_y++)
 					{
 						MotorYStep(diry);
 					}
-				}
-				else if(!diry)
-				{
-					for(ycount=0;ycount<qy;ycount++)
-					{
-						MotorYStep(diry);
-					}
-				}
+				TotalCount++;
+			}
+
 }
+
+
+
+
+
