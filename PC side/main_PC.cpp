@@ -11,14 +11,21 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <conio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <Windows.h>
-
-using namespace std;
-#include <iostream>
 #include <queue>
+#include <Windows.h>
+#include <iostream>
+#include "system_constants.h"
+#include "steps.h"
+using namespace std;
+
+
+
+#define STACKSIZE 5
+
 
 
 
@@ -47,7 +54,6 @@ void system_error(char *name) {
 
 
 
-
 typedef struct {                        // A simple variant data type that can hold byte, word, or long
 	    uint8_t len;                        // Length of data received
 	    union {                             //
@@ -59,22 +65,23 @@ typedef struct {                        // A simple variant data type that can h
 	} variant_t;                            //
 
 
-  int ContinueCounter=0;
+  short ContinueCounter=0;
 
 
 
 void SendShort(variant_t *v, HANDLE file, DWORD written, DWORD read);  
 
+void finished(HANDLE file,DWORD written);
 
 
 
 
-
+void RecieveGo(HANDLE file, DWORD read);
 
 
 int main(int argc, char **argv) {
     int ch;
-     
+    srand(time(NULL));
     HANDLE file;
     COMMTIMEOUTS timeouts;
     DWORD read, written;
@@ -128,38 +135,71 @@ int main(int argc, char **argv) {
     Sleep(200);
     if (!EscapeCommFunction(file, SETDTR))
         system_error("setting DTR");
-
-
-  
-  /* since were using USB and its almost always com 4, we can use this really simple windows.h 
-  API stuff to read/write to ports, no reason to change anything since it works as it should,
-  should be good enough for brandon to work with */
-  //to send bytes, use this format:
-  //unsigned char tx_variable[1];
-  // *tx_variable=25;
-  //WriteFile(file, tx_variable, sizeof(tx_variable), &written, NULL);
-
-
-
-
-
-
-
+        long random=65;
+        long n;
+        queue<short>ratio_x;
+        queue<short>ratio_y;
+        queue<short>cnt;
+        for(n=0;n<random;n++)
+        {
+        cnt.push(rand()%500+1);
+            ratio_x.push(rand()% 30+1);
+            ratio_y.push(rand()% 30+1);
+            cout << n << endl;
+        }
         
-        
-  
-  
-  // to read bytes, use this format:
-  // unsigned char rx_variable[1];
-  //ReadFile(file, rx_variable, sizeof(rx_variable), &read, NULL);
-  // cout << *rx_variable << endl;
-  // that prints out the value stored in rx_variable, which is the line buffer.
+        int ack[1];
+        *ack=0;
+        //initialize variables
+       variant_t sendx, sendy, sendcnt;
+//================================================
 
+    n=0;
+    RecieveGo(file, read);                                              
+    while(!ratio_x.empty()) //keep going until all the points are sent
+    {
+         if(n>=STACKSIZE)
+         {
+               RecieveGo(file, read); // for refilling the buffer automatically
+               WriteFile(file, ack, sizeof(ack), &written, NULL);
+               RecieveGo(file, read);
+         }
+                
+                
+                         
+         sendcnt.val.n=cnt.front();                       //sends the count for the stack
+         SendShort(&sendcnt, file, written, read);
+         
+         
+         sendx.val.n=ratio_x.front();                     //sends the x ratio for the stack
+         SendShort(&sendx, file, written, read);
+         
+         
+         sendy.val.n=ratio_y.front();                     // sends the y ratio for the stack
+         SendShort(&sendy, file, written, read);
+    
+         
+         ratio_x.pop();
+         cnt.pop();
+         ratio_y.pop();
+         n++;
+    }
 
-
-
-
-
+         
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     return 0;
 }
@@ -195,4 +235,20 @@ void SendShort(variant_t *v, HANDLE file, DWORD written, DWORD read)
         WriteFile(file, array2, sizeof(array2), &written, NULL);
         RecieveGo(file, read);
 }
-
+void RecieveGo(HANDLE file, DWORD read)
+{
+      unsigned char RX[1]={0};
+     ContinueCounter=ContinueCounter+1;
+     int test;
+     do
+     {
+      test=0;
+      *RX=0;
+         ReadFile(file, RX, sizeof(RX), &read, NULL);
+         test=RX[0];
+         Sleep(5);
+     }while(test!=ContinueCounter);
+     if(ContinueCounter==255)
+		ContinueCounter=0;
+     cout << test << endl;
+}

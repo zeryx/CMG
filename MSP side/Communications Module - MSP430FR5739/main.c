@@ -22,7 +22,7 @@
 
 #define ACK 0xff
 int ContinueCounter=0;
-#define STACKSIZE 3
+#define STACKSIZE 5
 
 
 
@@ -65,7 +65,6 @@ void main(void) {
 
 	//configure data handler
 	ResetMotors();
-	while (1) {
 		int x = 0;
 		xcnt =CreateQueue(STACKSIZE);
 		ratio_x = CreateQueue(STACKSIZE); 	// change in define
@@ -102,12 +101,11 @@ void main(void) {
 		while (!IsEmpty(ratio_y) && !IsEmpty(ratio_x)) {
 			Motor_one_big_step(FrontAndDequeue(ratio_x), FrontAndDequeue(ratio_y), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), FrontAndDequeue(xcnt));
 			HandShake();
-			if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
+			if ((UCA0IFG & UCSTTIFG) && !getbyte())						//figure out how to get this to work
 			AddToBackOfQueue(ratio_x, ratio_y, dirqx, dirqy, xcnt);
 		}
 		LaserOff();
 
-	}
 }
 
 void ConfigWDT(void) {
@@ -223,6 +221,8 @@ void HandShake(void)
 	ContinueCounter++;
 	putbyte(ContinueCounter);
 	putbyte(ACK);
+	if(ContinueCounter==255)
+			ContinueCounter=0;
 }
 
 

@@ -4,7 +4,7 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
-#define DELAY_TERM 10000// this term is important, delays the steps by a certain amount of cycles
+#define DELAY_TERM 5000// this term is important, delays the steps by a certain amount of cycles
 
 
 
@@ -154,17 +154,15 @@ void Motor_one_big_step(int ratio_y,int ratio_x,int dirx,int diry, int xcnt)// t
 
 			for(TotalCount=0;TotalCount<xcnt;TotalCount++)
 			{
-
 					for(c_ratio_x=0;c_ratio_x<ratio_x;c_ratio_x++)
 					{
 						MotorXStep(dirx);
-
+						TotalCount++;
 					}
 					for(c_ratio_y=0;c_ratio_y<ratio_y;c_ratio_y++)
 					{
 						MotorYStep(diry);
 					}
-				TotalCount++;
 			}
 
 }
