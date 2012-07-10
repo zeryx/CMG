@@ -4,7 +4,7 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
-#define DELAY_TERM 5000// this term is important, delays the steps by a certain amount of cycles
+#define DELAY_TERM 10000// this term is important, delays the steps by a certain amount of cycles
 
 
 
@@ -150,12 +150,14 @@ void Motor_one_big_step(int ratio_y,int ratio_x,int dirx,int diry, int xcnt)// t
 {
 															// sumx and sumy for the first trial are set to 0.
 
-	volatile int TotalCount, c_ratio_x, c_ratio_y; //
+	volatile int TotalCount=0, c_ratio_x, c_ratio_y; //
 
-			for(TotalCount=0;TotalCount<xcnt;TotalCount++)
-			{
+			while(TotalCount < xcnt)
+			{       
 					for(c_ratio_x=0;c_ratio_x<ratio_x;c_ratio_x++)
 					{
+						if(TotalCount>=xcnt)								// put xcnt edge error code here
+							break;
 						MotorXStep(dirx);
 						TotalCount++;
 					}

@@ -1,9 +1,8 @@
 #include <msp430fr5739.h>
 
-#include <stdlib.h>
+#include <stdlib.h>//standard libraries
 #include <stdint.h>
-#include "queue.h"
-#include "Motor_Laser.h"
+
 //define bits as MCU pins
 
 #define STEP_A	BIT0
@@ -28,8 +27,6 @@ int ContinueCounter=0;
 
 
 
-
-
 typedef struct { // A simple variant data type that can hold byte, word, or long
 	uint8_t len; // Length of data received
 	union { //
@@ -39,38 +36,43 @@ typedef struct { // A simple variant data type that can hold byte, word, or long
 	} val; //
 } variant_t;
 
-
-
 void HandShake(void);
+
+
+
+
+#include "queue.h"// customer headers, I have them lower than the other startup stuff because I want to use the stuff above.
+#include "Motor_Laser.h"
+#include "Config.h"
+
 void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt);
-void ConfigEverything(void);
-void putbyte(unsigned int c);
-int getbyte(void);
-void ConfigWDT(void); // also actually use the WDT when you move off the shitty fraunchpad
 
-//actually do something with error handling
 
-//initalizing the mechanical peripherals
 
-void read_var(variant_t *v);
+	//=========================================
+	//main start
 
-void main(void) {
+
+	void main(void) {
 	ConfigEverything();
-	ConfigWDT();
+	TIMERCONFIG();
 	ConfigureMotorsStep_16();
 
 	unsigned short datx = 0, daty = 0, countx;
 	Queue ratio_x, ratio_y, dirqx, dirqy, xcnt;
 	unsigned char dirx = 0, diry = 0;
 
+	//==========================================
 	//configure data handler
+
+
 	ResetMotors();
 		int x = 0;
 		xcnt =CreateQueue(STACKSIZE);
-		ratio_x = CreateQueue(STACKSIZE); 	// change in define
+		ratio_x = CreateQueue(STACKSIZE); 	// change STACKSIZE in define, dictates how big the queue can be.
 		ratio_y = CreateQueue(STACKSIZE); 	//
-		dirqx = CreateQueue(STACKSIZE); //
-		dirqy = CreateQueue(STACKSIZE); //
+		dirqx = CreateQueue(STACKSIZE); 	//
+		dirqy = CreateQueue(STACKSIZE); 	//
 		HandShake();
 		while (!IsFull(ratio_y)) // while queue is not full, fill er up
 		{
@@ -96,40 +98,38 @@ void main(void) {
 			}
 
 		}
+		//=======================================
+		//end of queue filling, send it all to the motor now
+
 
 
 		while (!IsEmpty(ratio_y) && !IsEmpty(ratio_x)) {
 			Motor_one_big_step(FrontAndDequeue(ratio_x), FrontAndDequeue(ratio_y), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), FrontAndDequeue(xcnt));
 			HandShake();
-			if ((UCA0IFG & UCSTTIFG) && !getbyte())						//figure out how to get this to work
+
+
+
+			//=====================================
+			//we're done with the motor now for that stack, lets check to see if there is any more data in the PC queue!
+
+
+
+			if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
 			AddToBackOfQueue(ratio_x, ratio_y, dirqx, dirqy, xcnt);
 		}
 		LaserOff();
 
 }
 
-void ConfigWDT(void) {
-	WDTCTL = WDTPW + WDTHOLD;
-}
 
-#pragma vector=PORT4_VECTOR
-__interrupt void BUTTON(void) //start on button interrupt
+void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt) //similar to the initial enqueue procedure, but enqueues
+																						// in a separate function sepecifically for maintaining max stacksize.
 {
-	P4IFG &= ~(BIT0);
-	__bic_SR_register_on_exit(LPM3_bits);
-}
-
-#pragma vector=PORT3_VECTOR
-__interrupt void PORT3(void) //kill if error catch is bad
-{
-	__bis_SR_register(LPM4_bits);
-	_no_operation();
-}
-
-void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt) {
+	WDTCTL= 0x5A10;
 	variant_t longx, longy, longc;
 	int diry, daty, dirx, datx, countx;
 	read_var(&longc);
+	WDTCTL = WDTPW + WDTHOLD+WDTCNTCL;
 	countx = (longc.val.n );
 	Enqueue(countx, xcnt); //put buffer byte in queue x
 	read_var(&longx);
@@ -144,84 +144,17 @@ void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Qu
 	Enqueue(diry, dirqy);
 }
 
-void ConfigEverything(void) {
-
-	//configure clocks
-	CSCTL0_H = 0xA5; // Unlock register
-	CSCTL1 |= DCOFSEL0 + DCOFSEL1; // Set max. DCO setting
-	CSCTL2 = SELS_3 + SELM_3; // MCLK = DCO
-	CSCTL3 = DIVS_0 + DIVM_0; // set all dividers
-	CSCTL0_H = 0x01; // Lock Register
-
-	//configure MCU pins
-	P1DIR |= STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B;
-	P2DIR |= ENABLE + SLEEP + RESET;
-
-	P1SEL0 &=~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); // make sure that function is selected as external pin
-	P1SEL1 &~(STEP_A + STEP_B + DIR_A + DIR_B + MS1_A + MS1_B + MS2_A + MS2_B); //
-																				//
-	P2SEL0 &= ~(ENABLE + SLEEP + RESET); //
-	P2SEL1 &= ~(ENABLE + SLEEP + RESET); //
-
-	P2OUT &= ~(ENABLE); //turn on enable input to device
-	P1OUT &= ~(MS1_A + MS1_B + MS2_A + MS2_B); //initialize the step size to 1/1
-	P2OUT |= SLEEP; //turn off MCU while not in use
-
-	//configure LED pins
-	PJDIR |= BIT0+BIT1+BIT2+BIT3;
-	P3DIR |= BIT3+BIT4+BIT5+BIT6+BIT7;
-	P3OUT &= ~(BIT3+BIT4+BIT5+BIT6+BIT7);
-	PJOUT &= ~(BIT0+BIT1+BIT2+BIT3);
 
 
-	//configure UART pins
-	P2DIR |= BIT0;
-	P2SEL1 |= BIT0 + BIT1;
-	P2SEL0 &= ~(BIT0 + BIT1);
 
-	//configure UART
-	UCA0CTLW0 |= UCSWRST;
-	UCA0BR0 = 52; // 8000000/(9600*16), get the int throw away remainder
-	UCA0BR1 = 0; // high byte bit duration is (MCLK/BAUD) / 256, get the int, throw away the remainder
-	UCA0MCTLW = 0x4911; // UCBRFx = 1, UCBRSx = 0x49, UCOS16 = 1
-	UCA0CTLW0 = UCSSEL_2;
 
-}
-
-void read_var(variant_t *v) // Get a variant
-{ //
-	int n = 2;
-	v->len = n; // 2 bytes, a short, always
-	uint8_t *b = &v->val.b; // Make pointer to data
-	do { //
-		*b++ = getbyte(); // Get a byte
-	} while (--n); // Until all received
-}
-
-void putbyte(unsigned int c) {
-	while (!(UCA0IFG & UCTXIFG))
-		;
-	UCA0TXBUF = c;
-	UCA0IFG &= ~UCTXIFG;
-}
-
-int getbyte(void) {
-	while (!(UCA0IFG & UCSTTIFG))
-		;
-	_delay_cycles(10000);
-	const int c = UCA0RXBUF;
-	UCA0RXBUF = 0;
-	UCA0IFG &= ~(UCRXIFG + UCSTTIFG);
-	HandShake();
-	return c;
-}
-
-void HandShake(void)
+void HandShake(void)			//this small function is used to maintain parity with the PC, it sends a acknowledgement byte after each byte recieved,
+								//signifying its ready for another byte.
 {
 	ContinueCounter++;
 	putbyte(ContinueCounter);
 	putbyte(ACK);
-	if(ContinueCounter==255)
+	if(ContinueCounter==255) // just to make it easy, if the ContinueCounter (sent as an int) gets larger than 255, overflow to 0 and count back up
 			ContinueCounter=0;
 }
 
