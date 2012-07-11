@@ -20,7 +20,17 @@
 
 
 #define ACK 0xff
+
+
+
 int ContinueCounter=0;
+static int InterruptCounter=0;
+static int IC=0;
+static int EndLoop=0;
+
+
+
+#define TIMEOUT 20
 #define STACKSIZE 5
 
 
@@ -66,70 +76,87 @@ void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Qu
 	//configure data handler
 
 
-	ResetMotors();
-		int x = 0;
-		xcnt =CreateQueue(STACKSIZE);
-		ratio_x = CreateQueue(STACKSIZE); 	// change STACKSIZE in define, dictates how big the queue can be.
-		ratio_y = CreateQueue(STACKSIZE); 	//
-		dirqx = CreateQueue(STACKSIZE); 	//
-		dirqy = CreateQueue(STACKSIZE); 	//
-		HandShake();
-		while (!IsFull(ratio_y)) // while queue is not full, fill er up
-		{
-			variant_t combine;
-			x++;
 
-
-			if (x & 1) {
-				read_var(&combine);
-				countx = (combine.val.n);
-				Enqueue(countx, xcnt); //put length of step cycle in xcnt
-				read_var(&combine);
-				dirx = combine.val.n >> 15;
-				datx = (combine.val.n & ~0x8000);
-				Enqueue(datx, ratio_x);
-				Enqueue(dirx, dirqx);
-			} else {
-				read_var(&combine);
-				diry = combine.val.n >> 15;
-				daty = (combine.val.n & ~0x8000);
-				Enqueue(daty, ratio_y); // put buffer byte in queue y
-				Enqueue(diry, dirqy);
-			}
-
-		}
-		//=======================================
-		//end of queue filling, send it all to the motor now
+	xcnt =CreateQueue(STACKSIZE);
+	ratio_x = CreateQueue(STACKSIZE); 	// change STACKSIZE in define, dictates how big the queue can be.
+	ratio_y = CreateQueue(STACKSIZE); 	//
+	dirqx = CreateQueue(STACKSIZE); 	//
+	dirqy = CreateQueue(STACKSIZE); 	//
 
 
 
-		while (!IsEmpty(ratio_y) && !IsEmpty(ratio_x)) {
-			Motor_one_big_step(FrontAndDequeue(ratio_x), FrontAndDequeue(ratio_y), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), FrontAndDequeue(xcnt));
+	while(1)//main loop start
+	{
+			ResetMotors();
+			int x = 0;
 			HandShake();
+			LaserWait();
+			while (!IsFull(ratio_y)) // while queue is not full, fill er up
+			{
+				variant_t combine;
+				x++;
+
+
+				if (x & 1) {
+					read_var(&combine);
+					countx = (combine.val.n);
+					Enqueue(countx, xcnt); //put length of step cycle in xcnt
+					read_var(&combine);
+					dirx = combine.val.n >> 15;
+					datx = (combine.val.n & ~0x8000);
+					Enqueue(datx, ratio_x);
+					Enqueue(dirx, dirqx);
+				} else {
+					read_var(&combine);
+					diry = combine.val.n >> 15;
+					daty = (combine.val.n & ~0x8000);
+					Enqueue(daty, ratio_y); // put buffer byte in queue y
+					Enqueue(diry, dirqy);
+				}
+
+			}
+			//=======================================
+			//end of queue filling, send it all to the motor now
 
 
 
-			//=====================================
-			//we're done with the motor now for that stack, lets check to see if there is any more data in the PC queue!
+			while (!IsEmpty(ratio_y) && !IsEmpty(ratio_x)) {
+				Motor_one_big_step(FrontAndDequeue(ratio_x), FrontAndDequeue(ratio_y), FrontAndDequeue(dirqx), FrontAndDequeue(dirqy), FrontAndDequeue(xcnt));
 
 
 
-			if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
-			AddToBackOfQueue(ratio_x, ratio_y, dirqx, dirqy, xcnt);
-		}
-		LaserOff();
+				//=====================================
+				//we're done with the motor now for that stack, lets check to see if there is any more data in the PC queue!
 
+
+
+				if ((UCA0IFG & UCSTTIFG))						//figure out how to get this to work
+				AddToBackOfQueue(ratio_x, ratio_y, dirqx, dirqy, xcnt);
+			}
+			LaserOff();
+			MotorsOff();
+
+
+				//======================================= main loop end, restart to the front, but first, standby mode ACTIVATED!
+
+	}
 }
 
 
 void AddToBackOfQueue(Queue ratio_x, Queue ratio_y, Queue dirqx, Queue dirqy, Queue xcnt) //similar to the initial enqueue procedure, but enqueues
 																						// in a separate function sepecifically for maintaining max stacksize.
 {
-	WDTCTL= 0x5A10;
 	variant_t longx, longy, longc;
 	int diry, daty, dirx, datx, countx;
+
+
+
+	IC=1;						//this stuff tests to make sure that there is still stuff in the PC queue, and if there isn't, continues.
 	read_var(&longc);
-	WDTCTL = WDTPW + WDTHOLD+WDTCNTCL;
+	IC=0;
+	InterruptCounter=0;
+
+
 	countx = (longc.val.n );
 	Enqueue(countx, xcnt); //put buffer byte in queue x
 	read_var(&longx);

@@ -3,7 +3,7 @@ void ConfigEverything(void) {
 	//configure clocks
 	CSCTL0_H = 0xA5; // Unlock register
 	CSCTL1 |= DCOFSEL0 + DCOFSEL1; // Set max. DCO setting
-	CSCTL2 = SELS_3 + SELM_3+SELA_4; // MCLK = DCO
+	CSCTL2 = SELS_3 + SELM_3; // MCLK = DCO
 	CSCTL3 = DIVS_0 + DIVM_0; // set all dividers
 	CSCTL0_H = 0x01; // Lock Register
 
@@ -39,11 +39,13 @@ void ConfigEverything(void) {
 	UCA0BR1 = 0; // high byte bit duration is (MCLK/BAUD) / 256, get the int, throw away the remainder
 	UCA0MCTLW = 0x4911; // UCBRFx = 1, UCBRSx = 0x49, UCOS16 = 1
 	UCA0CTLW0 = UCSSEL_2;
-	__bis_SR_register(GIE+WDTIE);
+	__bis_SR_register(GIE);
+	SFRIE1|=WDTIE;
 }
 
 
-void putbyte(unsigned int c) {
+void putbyte(unsigned int c)
+{
 	while (!(UCA0IFG & UCTXIFG));
 	UCA0TXBUF = c;
 	UCA0IFG &= ~UCTXIFG;
@@ -51,8 +53,9 @@ void putbyte(unsigned int c) {
 
 
 
-int getbyte(void) {
-	while (!(UCA0IFG & UCSTTIFG));
+int getbyte(void)
+{
+	while (!(UCA0IFG & UCSTTIFG)) if(EndLoop) break;
 	_delay_cycles(10000);
 	const int c = UCA0RXBUF;
 	UCA0RXBUF = 0;
@@ -63,20 +66,24 @@ int getbyte(void) {
 
 void TIMERCONFIG(void)
 {
-	WDTCTL = WDTPW+WDTHOLD;
+	WDTCTL = WDTPW+WDTTMSEL+WDTIS_4;
 
 }
 
 #pragma vector=WDT_VECTOR
 __interrupt void OverTime(void) //WDT, kills if longer than 1 second for a transfer, (IE PC is done sending)
 {
-	__bis_SR_register(LPM4_bits);
-	_no_operation();
+	if(IC==1)
+	{
+		InterruptCounter++;
+		if(InterruptCounter==TIMEOUT)
+			EndLoop=1;
+	}
 }
 
 
 void read_var(variant_t *v) // Get a variant
-{ //
+{
 	int n = 2;
 	v->len = n; // 2 bytes, a short, always
 	uint8_t *b = &v->val.b; // Make pointer to data

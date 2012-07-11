@@ -4,7 +4,7 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
-#define DELAY_TERM 10000// this term is important, delays the steps by a certain amount of cycles
+#define DELAY_TERM 1000// this term is important, delays the steps by a certain amount of cycles
 
 
 
@@ -33,8 +33,8 @@ void ResetMotors(void)
 {
 	P2OUT&=~SLEEP;								//turn on MCU
 	P2OUT |= RESET;								// reset location of MCU
-	  _delay_cycles(50);						// wait for reset
-	  P2OUT &= ~(RESET);						// turn off reset bit
+	 _delay_cycles(50);						// wait for reset
+	 P2OUT &= ~(RESET);						// turn off reset bit
 
 }
 
@@ -68,16 +68,34 @@ void ConfigureMotorsStep_2(void)
 	P1OUT|= MS1_A+MS1_B;
 
 }
-void LaserWait(void)// Fill all these later when I have proper pins to use
+void LaserWait(void)		// Fill all these later when I have proper pins to use
 {
-	_delay_cycles(50);
+	P3OUT |=BIT0;
+	_delay_cycles(50);      //ADC10MEM check value of Laser_Volt_Sensor and when warmed up, continue.
 }
 
+void LaserFire(void)
+{
+	P3OUT|=BIT1;
+}
+
+void LaserStandby(void)
+{
+	P3OUT &= ~BIT1;
+}
 void LaserOff(void)
 {
-	_delay_cycles(50);
+	P3OUT &= ~(BIT1+BIT0);
 }
+void MotorsOff(void)
+{
+		P2OUT |= RESET;								// reset location of MCU
+		_delay_cycles(50);						// wait for reset
+		P2OUT &= ~(RESET);						// turn off reset bit
+		P2OUT|=SLEEP;								//turn off MCU
 
+
+}
 
 
 
@@ -85,7 +103,7 @@ void LaserOff(void)
 
 void MotorXStep(int dirx)
 {
-
+	LaserFire();
 	if(!dirx)// forward step
 	{
 		_delay_cycles(DELAY_TERM);
@@ -113,9 +131,11 @@ void MotorXStep(int dirx)
 		_delay_cycles(DELAY_TERM);
 		PJOUT &= ~BIT2;
 	}
+	LaserStandby();
 }
 void MotorYStep(int diry)
 {
+	LaserFire();
 	if(!diry)// forward step
 	{
 
@@ -143,6 +163,7 @@ void MotorYStep(int diry)
 		_delay_cycles(DELAY_TERM);
 		PJOUT &= ~BIT3;
 	}
+	LaserStandby();
 }
 
 
