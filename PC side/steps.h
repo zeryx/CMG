@@ -15,7 +15,7 @@
 
 #define PI 3.14159265
 
-double xBase(float xi, float yi)                // 
+double xBase(double xi, double yi)                // 
 {
     return atan(xi/(sqrt(D*D + yi*yi) + AB) );
 }
@@ -23,24 +23,24 @@ double xBase(float xi, float yi)                //
 
 //=================================
 // Absolute Steps (rotational position)
-float stepsX (float xi, float yi)
+double stepsX (double xi, double yi)
 {
     return (xBase(xi, yi) / MICROSTEP_ANGLE );
 }
 
-float stepsY (float yi)
+double stepsY (double yi)
 {
     return ( atan(yi/D) / MICROSTEP_ANGLE );
 }
 
 //=================================
 // Relative Steps (change in rotational position)
-float stepsX (float xi, float yi, float x0)
+double stepsX (double xi, double yi, double x0)
 {
     return (stepsX(xi, yi) - stepsX(x0, yi));
 }
 
-float stepsY (float yi, float y0)
+double stepsY (double yi, double y0)
 {
     return( stepsY(yi) - stepsY(y0) );
 }

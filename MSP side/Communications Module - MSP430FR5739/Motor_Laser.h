@@ -4,7 +4,7 @@
  *  Created on: 2012-06-30
  *      Author: Labuser
  */
-#define DELAY_TERM 1000// this term is important, delays the steps by a certain amount of cycles
+#define DELAY_TERM 100// this term is important, delays the steps by a certain amount of cycles
 
 
 
@@ -167,25 +167,27 @@ void MotorYStep(int diry)
 }
 
 
-void Motor_one_big_step(int ratio_y,int ratio_x,int dirx,int diry, int xcnt)// this function takes the ratio between x and y, direction, and
+void Motor_one_big_step(int ratio_y,int ratio_x,int dirx,int diry, int cnt)// this function takes the ratio between x and y, direction, and
 {
 															// sumx and sumy for the first trial are set to 0.
 
-	volatile int TotalCount=0, c_ratio_x, c_ratio_y; //
+	volatile int TotalCount=0, c_ratio_x, c_ratio_y, ycount, xcount; //
 
-			while(TotalCount < xcnt)
+			while(TotalCount < cnt)
 			{       
 					for(c_ratio_x=0;c_ratio_x<ratio_x;c_ratio_x++)
 					{
-						if(TotalCount>=xcnt)								// put xcnt edge error code here
+						if(TotalCount>=cnt)								// put xcnt edge error code here
 							break;
 						MotorXStep(dirx);
-						TotalCount++;
 					}
 					for(c_ratio_y=0;c_ratio_y<ratio_y;c_ratio_y++)
 					{
+						if(TotalCount>=cnt)								// put xcnt edge error code here
+						break;
 						MotorYStep(diry);
 					}
+					TotalCount++;
 			}
 
 }

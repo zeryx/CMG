@@ -13,8 +13,8 @@
 
 
 
-
-
+#include <math.h>
+#include <time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include <queue>
 #include <Windows.h>
 #include <iostream>
-
+using namespace std;
 
 
 typedef struct {                        // union for  turning a short or long into a series of bytes for UART transfer, use SendShort for utilization.
@@ -49,7 +49,6 @@ typedef struct {                        // union for  turning a short or long in
 
 #include "system_constants.h"
 #include "steps.h"
-using namespace std;
 
 
 
@@ -85,7 +84,7 @@ void system_error(char *name) {
 
 
 
-    
+    int primenumber(int number);
     void SendShort(variant_t *v, HANDLE file, DWORD written, DWORD read);  //my function handler stuff
     void finished(HANDLE file,DWORD written);
     void RecieveGo(HANDLE file, DWORD read);
@@ -157,19 +156,132 @@ void system_error(char *name) {
         //============================================== function starts
         //this stuff prepares the queue and all variables, the step.h stuff will replace the rand values
         
-        long num_of_points=65;
-        long n;
-        queue<short>ratio_x; //using <queue> to make queues, much more practical than simple arrays
-        queue<short>ratio_y;
-        queue<short>cnt;
-        
-        
-        for(n=0;n<num_of_points;n++)
+    
+    queue<short>qratio_x; //using <queue> to make queues, much more practical than simple arrays
+    queue<short>qratio_y;
+    queue<short>qcnt;
+        double inputx, inputy, pathx=0, pathy=0;
+    int n, i, GCD, temp, tempa, tempb, a_r, b_r, stpx, stpy, min;
+    short rat_x, rat_y, cnt;
+    srand(time(NULL));
+    
+    
+    
+        for(n=0;n<=30;n++)
         {
-            cnt.push(rand()%500+1);
-            ratio_x.push(rand()% 30+1);
-            ratio_y.push(rand()% 30+1);
+                               
+              
+              inputx=(float)rand()/(float)RAND_MAX*rand()/1000;
+              inputy=-((float)rand()/(float)RAND_MAX*rand())/1000;
+              cout<<inputx << endl;
+              cout<< inputy << endl;
+              
+              
+              
+              
+              
+              
+              stpx=(short)stepsX(inputx, inputy, pathx);
+              stpy=(short)stepsY(inputy, pathy);
+              pathx=pathx+inputx;
+              pathy=pathy+inputy;
+              
+    //end of first bit of code
+              
+        
+        
+        //start of second bit of code
+        if(primenumber(stpx))
+        {
+            stpx=stpx+1;
+            cout <<"stpx was prime"<< endl;
         }
+        if(primenumber(stpy))
+        {
+            stpy=stpy+1;
+            cout <<"stpy was prime"<< endl;
+        }
+        
+        
+        
+        if((stpx % 2!=0) && (stpx % 3 !=0) && (stpx % 5 !=0))
+        stpx=stpx+1;
+       if((stpy % 2!=0) && (stpy % 3 !=0) && (stpy % 5 !=0))
+        stpy=stpy+1;  
+        
+        
+        
+        a_r=stpx;
+        b_r=stpy;
+		if(abs(stpx)>abs(stpy))
+		min=abs(stpy);
+		else if(abs(stpx)<abs(stpy))
+		min=abs(stpx);
+		rat_x=abs(stpx);
+		rat_y=abs(stpy);
+		if(stpx!=0 || stpy!=0) // if neither are zero, then lets divide
+		{
+            for(i=1;i<min;i++) // for this scope, lets just divide by 2, screw the other numbers
+                {
+                
+                    if(rat_x % i == 0 && rat_y % i == 0) // once we've gotten to the point where both x, or y
+                                                         // are divisible by i, set GCD equal to that
+                    {
+                        GCD=i;
+                    }
+
+
+                }
+                
+                rat_x=rat_x/GCD;
+                rat_y=rat_y/GCD;
+                cout << " x = " << stpx << endl<< " y = " << stpy << endl;
+                cout << "the greatest common denominator is " << GCD << endl;
+                
+            
+            
+
+            
+
+            
+            if(abs(stpx)>abs(stpy))
+                cnt=abs(stpx)/rat_x;
+                
+            if(abs(stpx)<abs(stpy))
+                cnt=abs(stpy)/rat_y;
+    
+                if(stpx<0)
+                rat_x=-rat_x;
+                if(stpy<0)
+                rat_y=-rat_y;
+            }
+            else if(stpx==0)
+            {
+                cnt=1;
+                rat_x=stpx;
+                rat_y=0;  
+                cout << "the greatest common denominator is " << "null y" << endl;
+            }
+            else if(stpy==0)
+            {
+                 cnt=1;
+                 rat_y=stpy;
+                 rat_y=0;
+                 cout << "the greatest common denominator is " << "null x" << endl;
+            }
+            
+            cout << rat_x << endl << rat_y << endl << cnt << endl<< endl;
+            
+            //==========================================================
+            
+            
+            
+            
+            qratio_x.push(rat_x);
+            qratio_y.push(rat_y);
+            qcnt.push(cnt);
+            }
+
         
         int ack[1];
         *ack=0;
@@ -177,38 +289,41 @@ void system_error(char *name) {
        variant_t sendx, sendy, sendcnt;
     //================================================
     // main meat and potatoes
-
-    n=0;
+     n=0;
     RecieveGo(file, read);                                              
-    while(!ratio_x.empty()) //keep going until all the points are sent
+    while(!qratio_x.empty()) //keep going until all the points are sent
     {
-         if(n>=STACKSIZE)
-         {
-               RecieveGo(file, read); // for refilling the buffer automatically
-               WriteFile(file, ack, sizeof(ack), &written, NULL);
-               RecieveGo(file, read);
-         }
+
                 
                 
                          
-         sendcnt.val.n=cnt.front(); 
-         cout << cnt.front() << endl;                      //sends the count for the stack
+         sendcnt.val.n=qcnt.front(); 
+         cout << qcnt.front() << endl;                      //sends the count for the stack
          SendShort(&sendcnt, file, written, read);
          
-         
-         sendx.val.n=ratio_x.front();                     //sends the x ratio for the stack
+         if(qratio_x.front()<0)
+         {
+             qratio_x.front()=-qratio_x.front();
+             qratio_x.front()=qratio_x.front() | 0x8000;
+         }
+         sendx.val.n=qratio_x.front();                     //sends the x ratio for the stack
          SendShort(&sendx, file, written, read);
          
-         
-         sendy.val.n=ratio_y.front();                     // sends the y ratio for the stack
+                  if(qratio_y.front()<0)
+         {
+             qratio_y.front()=-qratio_y.front();
+             qratio_y.front()=qratio_y.front() | 0x8000;
+         }
+         sendy.val.n=qratio_y.front();                     // sends the y ratio for the stack
          SendShort(&sendy, file, written, read);
     
          
-         ratio_x.pop(); // pops the fronted values in the queues, decreasing their sizes and storing less in ram
-         cnt.pop();     //
-         ratio_y.pop(); //
+         qratio_x.pop(); // pops the fronted values in the queues, decreasing their sizes and storing less in ram
+         qcnt.pop();     //
+         qratio_y.pop(); //
          n++;
     }
+   
     
 
     return 0;
@@ -275,4 +390,16 @@ void RecieveGo(HANDLE file, DWORD read)// this handshake knows when to send info
      }while(test!=ContinueCounter);
      if(ContinueCounter==255)
 		ContinueCounter=0;
+}
+
+int primenumber(int number)
+{
+    int truth;
+    for(int i=1; i<number; i++)
+    {
+       if(number%i!=0)
+          return 1;
+       else 
+          return 0;
+    } 
 }
